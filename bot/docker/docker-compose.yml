@@ -1,0 +1,18 @@
+services:
+  app:
+    container_name: template-bot-app
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: always
+    environment:
+      - DB_HOST=mongo
+  mongo:
+    container_name: template-bot-mongo
+    image: mongo
+    restart: always
+    volumes:
+      - mongo:/data/db
+
+volumes:
+  mongo: null
