@@ -1,46 +1,54 @@
-import os
+from flask import url_for, render_template, redirect
 
-from flask import url_for, redirect
-
+import forms
 from api import tags
-from loader import app
-
-BOT_PATH = 'bot'
+from loader import app, pm
 
 
 @app.route('/')
 def index():
-    return tags.a('Bot', url_for('bot'))
-
-
-@app.route('/bot/')
-def bot():
-    return bot_file(req_path='')
+    return redirect(url_for('projects'))
 
 
 @app.route('/test')
 def test():
-    return tags.textarea('Bebra')
+    return {}
 
 
-@app.route('/bot/<path:req_path>')
-def bot_file(req_path: str):
-    file_path = f'{BOT_PATH}/{req_path}'
+@app.route('/projects/')
+def projects():
+    strings = []
 
-    if not os.path.exists(file_path):
-        return 'File not found'
+    for item in pm.projects():
+        item_url = tags.a(item, url_for('project_item', path=item))
+        strings.append(item_url)
 
-    if os.path.isdir(file_path):
-        walker = os.walk(file_path)
-        items = next(walker)
+    return tags.pre('\n'.join(strings))
+
+
+@app.route('/projects/<path:path>', methods=['GET', 'POST'])
+def project_item(path: str):
+    form = forms.EditFile()
+    path = path.strip('/')
+    project_name = path.split('/')[0]
+
+    if form.validate_on_submit():
+        pm.edit(path, form.text_area.data)
+        pm.deploy(project_name)
+        return redirect(url_for('project_item', path=path))
+
+    result = pm.get(path)
+
+    if isinstance(result, list):
         strings = []
 
-        for i in items[1] + items[2]:
-            i_path = f'{req_path}/{i}'.lstrip('/')
-            i_url = tags.a(i, url_for('bot_file', req_path=i_path))
-            strings.append(i_url)
+        for item in result:
+            item_path = f'{path}/{item}'.strip('/')
+            item_url = tags.a(item, url_for('project_item', path=item_path))
+            strings.append(item_url)
 
         return tags.pre('\n'.join(strings))
 
-    with open(file_path) as file:
-        return tags.textarea(file.read(), cols=100, rows=30)
+    else:
+        form.text_area.data = result
+        return render_template('edit_file.html', form=form)
